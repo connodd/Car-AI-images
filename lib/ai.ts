@@ -26,5 +26,5 @@ async function createImage(model:string,mode:Mode,images:InputImage[],user:strin
 
 export async function generateImages(mode:Mode,images:InputImage[],user:string|null){
   if(mode==='wheels') return [await createImage(process.env.GEMINI_EDIT_MODEL||'gemini-3-pro-image',mode,images,user)];
-  return Promise.all(Array.from({length:6},(_,i)=>createImage(process.env.GEMINI_GENERATION_MODEL||'gemini-3.1-flash-image',mode,images,user,i)));
+  return Promise.all(Array.from({length:6},(_,i)=>createImage(process.env.GEMINI_GENERATION_MODEL||'gemini-nano-banana-2.1',mode,images,user,i)));
 }
