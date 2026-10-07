@@ -2,6 +2,7 @@
 import {useMemo,useState} from 'react';
 import {Upload,X,ArrowRight,LoaderCircle} from 'lucide-react';
 import {browserSupabase} from '@/lib/supabase';
+import {track} from '@vercel/analytics';
 
 type Mode='professional'|'rollers'|'wheels';
 const prices={professional:'$14.99',rollers:'$14.99',wheels:'$7.99'};
@@ -20,6 +21,7 @@ export default function Workflow({mode}:{mode:Mode}){
 
   async function create(unlimited=false){
     if(!ready||busy)return;
+    track('checkout_started',{mode,purchase:unlimited?'unlimited':'single'});
     setBusy(true);setMsg('Preparing your project…');
     const s=browserSupabase();
     const {data:{user}}=await s.auth.getUser();
@@ -32,11 +34,13 @@ export default function Workflow({mode}:{mode:Mode}){
         const f=files[i],kind=mode==='wheels'&&i===files.length-1?'wheel_reference':'reference';
         const ext=(f.name.split('.').pop()||'img').toLowerCase().replace(/[^a-z0-9]/g,'');
         const path=`${user.id}/${p.id}/${kind}-${i}.${ext}`;
+        if(i===0)track('upload_started',{mode});
         const {error:up}=await s.storage.from('revframe-inputs').upload(path,f,{contentType:f.type,upsert:false});
         if(up)throw up;
         const {error:asset}=await s.from('assets').insert({project_id:p.id,user_id:user.id,kind,path,mime_type:f.type});
         if(asset)throw asset;
       }
+      track('upload_completed',{mode,count:files.length});
       const finalized=await fetch('/api/projects/ready',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:p.id})});
       const fjson=await finalized.json();if(!finalized.ok)throw new Error(fjson.error||'Upload validation failed');
       const r=await fetch('/api/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:p.id,unlimited})});
