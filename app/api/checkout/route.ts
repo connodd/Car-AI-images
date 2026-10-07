@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server';
 import {waitUntil} from '@vercel/functions';
 import {adminSupabase,requireUser} from '@/lib/supabase';
 import {stripe,priceFor} from '@/lib/stripe';
-import {canStart,hasUnlimited,runJob} from '@/lib/jobs';
+import {canStart,hasUnlimited,runJob,withinRateLimit} from '@/lib/jobs';
 
 export const maxDuration=300;
 
@@ -11,6 +11,7 @@ export async function POST(req:Request){
     const user=await requireUser();
     const {projectId,unlimited=false}=await req.json();
     const db=adminSupabase();
+    if(!(await withinRateLimit(user.id)))return NextResponse.json({error:'Too many requests. Try again later.'},{status:429});
     const {data:project}=await db.from('projects').select('*').eq('id',projectId).eq('user_id',user.id).single();
     if(!project||project.status!=='DRAFT')return NextResponse.json({error:'Project is not ready for checkout.'},{status:400});
 
