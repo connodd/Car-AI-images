@@ -1,7 +1,7 @@
 'use client';
 import {useMemo,useState} from 'react';
 import {Upload,X,ArrowRight,LoaderCircle} from 'lucide-react';
-import {browserSupabase} from '@/lib/supabase';
+import {browserSupabase} from '@/lib/supabase-browser';
 import {track} from '@vercel/analytics';
 
 type Mode='professional'|'rollers'|'wheels';
