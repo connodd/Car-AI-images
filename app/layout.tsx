@@ -13,5 +13,5 @@ export const metadata:Metadata={
 };
 
 export default function Layout({children}:{children:ReactNode}){
-  return <html lang="en"><body><Header/>{children}<footer><div>REVFRAME <span>AI AUTOMOTIVE STUDIO</span></div><nav><a href="/legal/privacy">Privacy</a><a href="/legal/terms">Terms</a><a href="/legal/refund">Refund Policy</a></nav></footer><Analytics/></body></html>
+  return <html lang="en"><body><Header/>{children}<footer><div>REVFRAME <span>AI AUTOMOTIVE STUDIO</span></div><nav><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/refund">Refund Policy</a></nav></footer><Analytics/></body></html>
 }
