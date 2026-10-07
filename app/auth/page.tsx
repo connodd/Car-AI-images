@@ -1,6 +1,6 @@
 'use client';
 import {useState} from 'react';
-import {browserSupabase} from '@/lib/supabase';
+import {browserSupabase} from '@/lib/supabase-browser';
 
 export default function Auth(){
   const [view,setView]=useState<'signup'|'signin'|'forgot'>('signup');
