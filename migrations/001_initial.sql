@@ -4,8 +4,8 @@ create table if not exists public.projects(
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   mode text not null check(mode in('professional','rollers','wheels')),
-  instructions text,
-  status text not null default 'DRAFT' check(status in('DRAFT','UPLOADING','PREPARING','GENERATING','FINALIZING','COMPLETE','FAILED')),
+  instructions text check(instructions is null or char_length(instructions)<=600),
+  status text not null default 'UPLOADING' check(status in('DRAFT','UPLOADING','PREPARING','GENERATING','FINALIZING','COMPLETE','FAILED')),
   entitlement_type text check(entitlement_type in('single','subscription')),
   error_message text,
   created_at timestamptz not null default now(),
@@ -60,9 +60,11 @@ alter table public.payments enable row level security;
 alter table public.subscriptions enable row level security;
 
 create policy "projects read own" on public.projects for select using(auth.uid()=user_id);
-create policy "projects insert own" on public.projects for insert with check(auth.uid()=user_id);
+create policy "projects create upload only" on public.projects for insert
+  with check(auth.uid()=user_id and status='UPLOADING' and entitlement_type is null and error_message is null and completed_at is null);
 create policy "assets read own" on public.assets for select using(auth.uid()=user_id);
-create policy "assets insert own" on public.assets for insert with check(auth.uid()=user_id);
+create policy "assets create input only" on public.assets for insert
+  with check(auth.uid()=user_id and kind in('reference','wheel_reference') and split_part(path,'/',1)=auth.uid()::text);
 create policy "billing read own" on public.billing_profiles for select using(auth.uid()=user_id);
 create policy "payments read own" on public.payments for select using(auth.uid()=user_id);
 create policy "subscriptions read own" on public.subscriptions for select using(auth.uid()=user_id);
