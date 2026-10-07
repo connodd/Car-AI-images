@@ -14,7 +14,7 @@ export default function Auth(){
       const {error}=await s.auth.signInWithPassword({email,password});
       if(error)setMessage(error.message);else location.href=new URLSearchParams(location.search).get('next')||'/account';
     }else{
-      const {error}=await s.auth.resetPasswordForEmail(email,{redirectTo:`${location.origin}/account`});
+      const {error}=await s.auth.resetPasswordForEmail(email,{redirectTo:`${location.origin}/auth/reset`});
       setMessage(error?.message||'Password reset email sent.');
     }
   }
