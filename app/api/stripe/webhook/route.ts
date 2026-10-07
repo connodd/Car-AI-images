@@ -38,8 +38,6 @@ export async function POST(req:Request){
   if(seen)return NextResponse.json({received:true});
 
   try{
-    await db.from('webhook_events').insert({id:event.id,type:event.type});
-
     if(event.type==='checkout.session.completed'){
       const session=event.data.object as Stripe.Checkout.Session;
       const userId=session.metadata?.user_id||session.client_reference_id;
@@ -91,6 +89,9 @@ export async function POST(req:Request){
         if(userId)await saveSubscription(userId,sub);
       }
     }
+
+    const {error:markError}=await db.from('webhook_events').insert({id:event.id,type:event.type});
+    if(markError?.code!=='23505'&&markError)throw markError;
   }catch(e){
     console.error(e);
     return new NextResponse('Webhook handler failed',{status:500});
