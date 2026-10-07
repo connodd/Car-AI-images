@@ -34,8 +34,9 @@ export async function POST(req:Request){
   }
 
   const db=adminSupabase();
-  const {data:seen}=await db.from('webhook_events').select('id').eq('id',event.id).maybeSingle();
-  if(seen)return NextResponse.json({received:true});
+  const {error:claimError}=await db.from('webhook_events').insert({id:event.id,type:event.type});
+  if(claimError?.code==='23505')return NextResponse.json({received:true});
+  if(claimError)return new NextResponse('Webhook claim failed',{status:500});
 
   try{
     if(event.type==='checkout.session.completed'){
@@ -44,15 +45,16 @@ export async function POST(req:Request){
       const projectId=session.metadata?.project_id;
 
       if(userId&&session.customer){
-        await db.from('billing_profiles').upsert({
+        const {error}=await db.from('billing_profiles').upsert({
           user_id:userId,
           stripe_customer_id:String(session.customer),
           updated_at:new Date().toISOString()
         },{onConflict:'user_id'});
+        if(error)throw error;
       }
 
       if(session.mode==='payment'&&session.payment_status==='paid'&&userId&&projectId){
-        await db.from('payments').upsert({
+        const {error:paymentError}=await db.from('payments').upsert({
           user_id:userId,
           project_id:projectId,
           stripe_checkout_session_id:session.id,
@@ -60,16 +62,32 @@ export async function POST(req:Request){
           mode:session.metadata?.mode||'unknown',
           status:'paid'
         },{onConflict:'stripe_checkout_session_id'});
-        await db.from('projects').update({status:'PREPARING',entitlement_type:'single'}).eq('id',projectId).eq('user_id',userId).eq('status','DRAFT');
-        waitUntil(runJob(projectId));
+        if(paymentError)throw paymentError;
+
+        const {data:claimed,error:projectError}=await db.from('projects')
+          .update({status:'PREPARING',entitlement_type:'single'})
+          .eq('id',projectId)
+          .eq('user_id',userId)
+          .eq('status','DRAFT')
+          .select('id')
+          .maybeSingle();
+        if(projectError)throw projectError;
+        if(claimed)waitUntil(runJob(projectId));
       }
 
       if(session.mode==='subscription'&&userId&&session.subscription){
         const sub=await stripe().subscriptions.retrieve(String(session.subscription));
         await saveSubscription(userId,sub);
         if(projectId){
-          await db.from('projects').update({status:'PREPARING',entitlement_type:'subscription'}).eq('id',projectId).eq('user_id',userId).eq('status','DRAFT');
-          waitUntil(runJob(projectId));
+          const {data:claimed,error:projectError}=await db.from('projects')
+            .update({status:'PREPARING',entitlement_type:'subscription'})
+            .eq('id',projectId)
+            .eq('user_id',userId)
+            .eq('status','DRAFT')
+            .select('id')
+            .maybeSingle();
+          if(projectError)throw projectError;
+          if(claimed)waitUntil(runJob(projectId));
         }
       }
     }
@@ -89,10 +107,8 @@ export async function POST(req:Request){
         if(userId)await saveSubscription(userId,sub);
       }
     }
-
-    const {error:markError}=await db.from('webhook_events').insert({id:event.id,type:event.type});
-    if(markError?.code!=='23505'&&markError)throw markError;
   }catch(e){
+    await db.from('webhook_events').delete().eq('id',event.id);
     console.error(e);
     return new NextResponse('Webhook handler failed',{status:500});
   }
