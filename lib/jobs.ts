@@ -14,12 +14,25 @@ export async function canStart(userId:string){
   const {count}=await adminSupabase().from('projects').select('id',{count:'exact',head:true}).eq('user_id',userId).in('status',['PREPARING','GENERATING','FINALIZING']);
   return (count??0)<2;
 }
+
+async function clearPartialResults(projectId:string){
+  const db=adminSupabase();
+  const {data:oldResults,error}=await db.from('assets').select('id,path').eq('project_id',projectId).eq('kind','result');
+  if(error)throw error;
+  if(!oldResults?.length)return;
+  const {error:storageError}=await db.storage.from('revframe-results').remove(oldResults.map(result=>result.path));
+  if(storageError)throw storageError;
+  const {error:deleteError}=await db.from('assets').delete().in('id',oldResults.map(result=>result.id));
+  if(deleteError)throw deleteError;
+}
+
 export async function runJob(id:string){
   const db=adminSupabase();
   const {data:p}=await db.from('projects').select('*').eq('id',id).single();
   if(!p || !['PREPARING','FAILED'].includes(p.status)) return;
   try{
-    await db.from('projects').update({status:'GENERATING',error_message:null}).eq('id',id);
+    await clearPartialResults(id);
+    await db.from('projects').update({status:'GENERATING',error_message:null,completed_at:null}).eq('id',id);
     const {data:assets}=await db.from('assets').select('*').eq('project_id',id).order('created_at');
     const refs=(assets||[]).filter(a=>a.kind!=='result');
     const inputs=await Promise.all(refs.map(async a=>{
@@ -34,7 +47,8 @@ export async function runJob(id:string){
       const path=`${p.user_id}/${id}/result-${i+1}.${ext}`;
       const {error}=await db.storage.from('revframe-results').upload(path,outputs[i].bytes,{contentType:outputs[i].mime,upsert:false});
       if(error) throw error;
-      await db.from('assets').insert({project_id:id,user_id:p.user_id,kind:'result',path,mime_type:outputs[i].mime});
+      const {error:assetError}=await db.from('assets').insert({project_id:id,user_id:p.user_id,kind:'result',path,mime_type:outputs[i].mime});
+      if(assetError)throw assetError;
     }
     await db.from('projects').update({status:'COMPLETE',completed_at:new Date().toISOString()}).eq('id',id);
   }catch(e){
