@@ -1,7 +1,7 @@
 import {NextResponse} from 'next/server';
 import {waitUntil} from '@vercel/functions';
 import {adminSupabase,requireUser} from '@/lib/supabase';
-import {canStart,hasUnlimited,runJob} from '@/lib/jobs';
+import {canStart,hasUnlimited,runJob,withinRateLimit} from '@/lib/jobs';
 
 export const maxDuration=300;
 
@@ -10,6 +10,7 @@ export async function POST(req:Request){
     const user=await requireUser();
     const {projectId,retry=false}=await req.json();
     const db=adminSupabase();
+    if(!(await withinRateLimit(user.id)))return NextResponse.json({error:'Too many requests. Try again later.'},{status:429});
     const {data:project}=await db.from('projects').select('*').eq('id',projectId).eq('user_id',user.id).single();
     if(!project)return NextResponse.json({error:'Project not found.'},{status:404});
     if(retry&&project.status!=='FAILED')return NextResponse.json({error:'Only failed generations can be retried.'},{status:400});
