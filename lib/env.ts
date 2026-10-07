@@ -9,7 +9,8 @@ const serverRequired=[
   'STRIPE_PRICE_PROFESSIONAL',
   'STRIPE_PRICE_ROLLERS',
   'STRIPE_PRICE_WHEELS',
-  'STRIPE_PRICE_UNLIMITED'
+  'STRIPE_PRICE_UNLIMITED',
+  'STRIPE_PORTAL_CONFIGURATION'
 ] as const;
 
 export function requireEnv(name:typeof serverRequired[number]){
