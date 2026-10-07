@@ -21,11 +21,13 @@ jobs:
       STRIPE_PRICE_ROLLERS: price_placeholder
       STRIPE_PRICE_WHEELS: price_placeholder
       STRIPE_PRICE_UNLIMITED: price_placeholder
+      STRIPE_PORTAL_CONFIGURATION: bpc_placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
       - run: npm install --no-audit --no-fund
+      - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
