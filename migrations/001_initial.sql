@@ -59,23 +59,41 @@ alter table public.billing_profiles enable row level security;
 alter table public.payments enable row level security;
 alter table public.subscriptions enable row level security;
 
+drop policy if exists "projects read own" on public.projects;
+drop policy if exists "projects create upload only" on public.projects;
+drop policy if exists "assets read own" on public.assets;
+drop policy if exists "assets create input only" on public.assets;
+drop policy if exists "billing read own" on public.billing_profiles;
+drop policy if exists "payments read own" on public.payments;
+drop policy if exists "subscriptions read own" on public.subscriptions;
+
 create policy "projects read own" on public.projects for select using(auth.uid()=user_id);
 create policy "projects create upload only" on public.projects for insert
   with check(auth.uid()=user_id and status='UPLOADING' and entitlement_type is null and error_message is null and completed_at is null);
 create policy "assets read own" on public.assets for select using(auth.uid()=user_id);
 create policy "assets create input only" on public.assets for insert
-  with check(auth.uid()=user_id and kind in('reference','wheel_reference') and split_part(path,'/',1)=auth.uid()::text);
+  with check(
+    auth.uid()=user_id
+    and kind in('reference','wheel_reference')
+    and split_part(path,'/',1)=auth.uid()::text
+    and exists(
+      select 1 from public.projects p
+      where p.id=project_id and p.user_id=auth.uid() and p.status='UPLOADING'
+    )
+  );
 create policy "billing read own" on public.billing_profiles for select using(auth.uid()=user_id);
 create policy "payments read own" on public.payments for select using(auth.uid()=user_id);
 create policy "subscriptions read own" on public.subscriptions for select using(auth.uid()=user_id);
 
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values('revframe-inputs','revframe-inputs',false,20971520,array['image/jpeg','image/png','image/webp','image/heic','image/heif'])
-on conflict(id) do nothing;
+on conflict(id) do update set public=false,file_size_limit=excluded.file_size_limit,allowed_mime_types=excluded.allowed_mime_types;
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values('revframe-results','revframe-results',false,26214400,array['image/jpeg','image/png','image/webp'])
-on conflict(id) do nothing;
+on conflict(id) do update set public=false,file_size_limit=excluded.file_size_limit,allowed_mime_types=excluded.allowed_mime_types;
 
+drop policy if exists "upload own revframe inputs" on storage.objects;
+drop policy if exists "read own revframe inputs" on storage.objects;
 create policy "upload own revframe inputs" on storage.objects for insert to authenticated
 with check(bucket_id='revframe-inputs' and (storage.foldername(name))[1]=auth.uid()::text);
 create policy "read own revframe inputs" on storage.objects for select to authenticated
