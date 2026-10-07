@@ -9,6 +9,7 @@ export async function POST(){
     if(!data?.stripe_customer_id)return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL}/account`,303);
     const session=await stripe().billingPortal.sessions.create({
       customer:data.stripe_customer_id,
+      configuration:process.env.STRIPE_PORTAL_CONFIGURATION,
       return_url:`${process.env.NEXT_PUBLIC_SITE_URL}/account`
     });
     return NextResponse.redirect(session.url,303);
