@@ -1,0 +1,31 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SITE_URL: https://revframe.example.com
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+      SUPABASE_SERVICE_ROLE_KEY: placeholder
+      GEMINI_API_KEY: placeholder
+      GEMINI_GENERATION_MODEL: gemini-3.1-flash-image
+      GEMINI_EDIT_MODEL: gemini-3-pro-image
+      STRIPE_SECRET_KEY: sk_test_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_placeholder
+      STRIPE_PRICE_PROFESSIONAL: price_placeholder
+      STRIPE_PRICE_ROLLERS: price_placeholder
+      STRIPE_PRICE_WHEELS: price_placeholder
+      STRIPE_PRICE_UNLIMITED: price_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm run build
