@@ -1,0 +1,4 @@
+'use client';
+import {useRef,useState} from 'react';
+import {ChevronsLeftRight} from 'lucide-react';
+export default function BeforeAfter({before,after}:{before:string,after:string}){const [p,setP]=useState(50);const ref=useRef<HTMLDivElement>(null);const move=(x:number)=>{const r=ref.current?.getBoundingClientRect();if(r)setP(Math.max(0,Math.min(100,(x-r.left)/r.width*100)))};return <div ref={ref} className="compare" onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId);move(e.clientX)}} onPointerMove={e=>{if(e.buttons)move(e.clientX)}}><img src={after} alt="After wheel visualization" draggable={false}/><div className="before" style={{clipPath:`inset(0 ${100-p}% 0 0)`}}><img src={before} alt="Before wheel visualization" draggable={false}/></div><span className="compareTag left">BEFORE</span><span className="compareTag right">AFTER</span><div className="compareLine" style={{left:`${p}%`}}><span><ChevronsLeftRight size={20}/></span></div></div>}
