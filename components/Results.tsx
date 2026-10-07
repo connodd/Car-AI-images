@@ -1,7 +1,20 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
-import {Download,RefreshCw} from 'lucide-react';
+import {Download,RefreshCw,Plus} from 'lucide-react';
+import {track} from '@vercel/analytics';
 import BeforeAfter from './BeforeAfter';
 
-export default function Results({id}:{id:string}){const [d,setD]=useState<any>(null);useEffect(()=>{let live=true;const poll=async()=>{const r=await fetch(`/api/jobs/${id}`),j=await r.json();if(live)setD(j);if(live&&!['COMPLETE','FAILED'].includes(j.status))setTimeout(poll,2200)};poll();return()=>{live=false}},[id]);if(!d)return <div className="status"><i/>PREPARING</div>;if(d.status!=='COMPLETE')return <div className="status"><i/><h2>{d.status}</h2><p>{d.status==='FAILED'?d.error_message:'REVFRAME is building your images. You can leave this page and return from Account.'}</p>{d.status==='FAILED'&&<button className="btn ghost" onClick={()=>fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:id,retry:true})}).then(()=>location.reload())}><RefreshCw/> RETRY</button>}</div>;const results=d.assets.filter((x:any)=>x.kind==='result'),refs=d.assets.filter((x:any)=>x.kind==='reference');return <div><div className="resultHead"><div><small>COMPLETE</small><h1>{d.mode==='professional'?'PROFESSIONAL PHOTOSHOOT':d.mode==='rollers'?'ROLLERS':'WHEEL VISUALIZATION'}</h1>{d.instructions&&<p>“{d.instructions}”</p>}</div><Link className="btn ghost" href={`/${d.mode}`}>NEW</Link></div>{d.mode==='wheels'&&refs[0]&&results[0]?<><BeforeAfter before={refs[0].url} after={results[0].url}/><div className="resultActions"><a className="btn light" href={results[0].url} target="_blank"><Download size={18}/> DOWNLOAD</a><Link className="btn ghost" href="/wheels">TRY ANOTHER WHEEL</Link></div></>:<div className="resultGrid">{results.map((x:any)=><figure key={x.id}><img src={x.url} alt="Generated automotive photo"/><a href={x.url} target="_blank"><Download size={16}/> DOWNLOAD</a></figure>)}</div>}</div>}
+export default function Results({id}:{id:string}){
+  const [d,setD]=useState<any>(null);
+  const tracked=useRef<string|null>(null);
+  useEffect(()=>{let live=true;const poll=async()=>{const r=await fetch(`/api/jobs/${id}`),j=await r.json();if(live)setD(j);if(live&&!['COMPLETE','FAILED'].includes(j.status))setTimeout(poll,2200)};poll();return()=>{live=false}},[id]);
+  useEffect(()=>{if(!d?.status||tracked.current===d.status)return;if(d.status==='COMPLETE'){track('generation_completed',{mode:d.mode});tracked.current=d.status}else if(d.status==='FAILED'){track('generation_failed',{mode:d.mode});tracked.current=d.status}},[d]);
+  if(!d)return <div className="status"><i/>PREPARING</div>;
+  if(d.status!=='COMPLETE')return <div className="status"><i/><h2>{d.status}</h2><p>{d.status==='FAILED'?d.error_message:'REVFRAME is building your images. You can leave this page and return from Account.'}</p>{d.status==='FAILED'&&<button className="btn ghost" onClick={()=>fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:id,retry:true})}).then(()=>location.reload())}><RefreshCw/> RETRY</button>}</div>;
+  const results=d.assets.filter((x:any)=>x.kind==='result'),refs=d.assets.filter((x:any)=>x.kind==='reference');
+  const downloadAll=()=>results.forEach((x:any,i:number)=>setTimeout(()=>{const a=document.createElement('a');a.href=x.url;a.target='_blank';a.rel='noopener';a.click()},i*250));
+  return <div><div className="resultHead"><div><small>COMPLETE</small><h1>{d.mode==='professional'?'PROFESSIONAL PHOTOSHOOT':d.mode==='rollers'?'ROLLERS':'WHEEL VISUALIZATION'}</h1>{d.instructions&&<p>“{d.instructions}”</p>}</div><div className="resultTopActions"><Link className="btn ghost" href={`/${d.mode}`}><Plus size={17}/> {d.mode==='wheels'?'NEW CAR':'GENERATE AGAIN'}</Link>{d.mode!=='wheels'&&<button className="btn light" onClick={downloadAll}><Download size={17}/> DOWNLOAD ALL</button>}</div></div>
+    {d.mode==='wheels'&&refs[0]&&results[0]?<><BeforeAfter before={refs[0].url} after={results[0].url}/><div className="resultActions"><a className="btn light" href={results[0].url} target="_blank" rel="noopener"><Download size={18}/> DOWNLOAD</a><Link className="btn ghost" href="/wheels">TRY ANOTHER WHEEL</Link><Link className="btn ghost" href="/wheels">NEW CAR</Link></div></>:<div className="resultGrid">{results.map((x:any)=><figure key={x.id}><img src={x.url} alt="Generated automotive photo"/><a href={x.url} target="_blank" rel="noopener"><Download size={16}/> DOWNLOAD</a></figure>)}</div>}
+  </div>
+}
